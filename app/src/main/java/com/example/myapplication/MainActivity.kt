@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import android.view.View
 import android.widget.AdapterView.OnItemClickListener
 import android.widget.ListView
@@ -16,8 +15,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import java.util.*
-import kotlin.collections.ArrayList
 
 
 class MainActivity : AppCompatActivity() {
@@ -91,38 +88,41 @@ class MainActivity : AppCompatActivity() {
         builder.add(" App Info")
         var counter = 1
         val pi = packageManager.getPackageInfo(appPackage, PackageManager.GET_PERMISSIONS)
-        for (i in pi.requestedPermissions.indices) {
-            if (pi.requestedPermissionsFlags[i] and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0) {
-                val permissionInfo = packageManager.getPermissionInfo(pi.requestedPermissions[i], 0)
-                if (permissionInfo.group != null) {
+        pi?.let { it ->
+            pi.requestedPermissions?.let {
+                for (i in it.indices) {
+                    if (pi.requestedPermissionsFlags[i] and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0) {
+                        val permissionInfo = packageManager.getPermissionInfo(pi.requestedPermissions[i], 0)
+                        if (permissionInfo.group != null) {
 
-                    val permission_path = pi.requestedPermissions[i]
+                            val permission_path = pi.requestedPermissions[i]
 
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        val name = Helper.getGroupName(permission_path)
-                        name?.let {
-                            if(!builder.contains(it)){
-                                builder.add(it)
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                val name = Helper.getGroupName(permission_path)
+                                name?.let {
+                                    if (!builder.contains(it)) {
+                                        builder.add(it)
+                                    }
+                                }
+                            } else {
+                                val permissionGroupInfo = packageManager.getPermissionGroupInfo(permissionInfo.group, 0)
+                                val permission_group_name = permissionGroupInfo.loadLabel(packageManager).toString()
+                                if (!builder.contains(permission_group_name)) {
+                                    builder.add(permission_group_name)
+                                }
                             }
                         }
-                    }else{
-                        val permissionGroupInfo = packageManager.getPermissionGroupInfo(permissionInfo.group, 0)
-                        val permission_group_name = permissionGroupInfo.loadLabel(packageManager).toString()
-                        if(!builder.contains(permission_group_name)){
-                            builder.add(permission_group_name)
-                        }
-
                     }
+                    counter++
                 }
-
             }
-            counter++
         }
+
         return builder
     }
 
     // Custom method go to application details settings by package name
-    protected fun displayAppDetailsSettings(packageName: String) {
+    private fun displayAppDetailsSettings(packageName: String) {
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
             intent.data = Uri.parse("package:$packageName")
@@ -141,7 +141,7 @@ class MainActivity : AppCompatActivity() {
         //List<PackageInfo> packs = getPackageManager().getInstalledPackages(PackageManager.GET_PERMISSIONS);
         for (i in packs.indices) {
             val p = packs[i]
-            if (!isSystemPackage(p)) {
+            if (!isSystemPackage(p) /*&& p.applicationInfo.packageName.equals("com.example.mylocation")*/) {
                 val appName = p.applicationInfo.loadLabel(packageManager).toString()
                 val icon = p.applicationInfo.loadIcon(packageManager)
                 val packages = p.applicationInfo.packageName
