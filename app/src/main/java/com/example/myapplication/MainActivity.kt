@@ -1,23 +1,24 @@
 package com.example.myapplication
 
 import android.content.ActivityNotFoundException
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.view.LayoutInflater
+import android.util.Log
 import android.view.View
-import android.view.ViewGroup
-import android.widget.*
 import android.widget.AdapterView.OnItemClickListener
+import android.widget.ListView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import java.util.*
+import kotlin.collections.ArrayList
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -33,7 +34,8 @@ class MainActivity : AppCompatActivity() {
         installedAppAdapter = AppListAdapter(this@MainActivity, installedApps)
         userInstalledApps!!.adapter = installedAppAdapter
         userInstalledApps!!.onItemClickListener = OnItemClickListener { adapterView, view, i, l ->
-            val colors = arrayOf(" Open App", " App Info", getPermissionsByPackageName(installedApps!![i].packages))
+
+            val colors = getGrantedPermissions(installedApps!![i].packages).toTypedArray()
             val builder = AlertDialog.Builder(this@MainActivity)
             builder.setTitle("Choose Action")
                     .setItems(colors) { dialog, which -> // The 'which' argument contains the index position of the selected item
@@ -69,37 +71,10 @@ class MainActivity : AppCompatActivity() {
             // Permissions counter
             var counter = 1
 
-            /*
-                PackageInfo
-                    Overall information about the contents of a package. This corresponds to all of
-                    the information collected from AndroidManifest.xml.
-            */
-            /*
-                String[] requestedPermissions
-                    Array of all <uses-permission> tags included under <manifest>, or null if there
-                    were none. This is only filled in if the flag GET_PERMISSIONS was set. This list
-                    includes all permissions requested, even those that were not granted or known
-                    by the system at install time.
-            */
-            /*
-                int[] requestedPermissionsFlags
-                    Array of flags of all <uses-permission> tags included under <manifest>, or null
-                    if there were none. This is only filled in if the flag GET_PERMISSIONS was set.
-                    Each value matches the corresponding entry in requestedPermissions, and will
-                    have the flag REQUESTED_PERMISSION_GRANTED set as appropriate.
-            */
-            /*
-                int REQUESTED_PERMISSION_GRANTED
-                    Flag for requestedPermissionsFlags: the requested permission is currently
-                    granted to the application.
-            */
-
             // Loop through the package info requested permissions
             for (i in packageInfo.requestedPermissions.indices) {
-                if (packageInfo.requestedPermissionsFlags[i] and PackageInfo.REQUESTED_PERMISSION_GRANTED == 0) {
+                if (packageInfo.requestedPermissionsFlags[i] and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0) {
                     val permission = packageInfo.requestedPermissions[i]
-                    // To make permission name shorter
-                    //permission = permission.substring(permission.lastIndexOf(".")+1);
                     builder.append("$counter. $permission\n")
                     counter++
                 }
@@ -108,6 +83,42 @@ class MainActivity : AppCompatActivity() {
             e.printStackTrace()
         }
         return builder.toString()
+    }
+
+    fun getGrantedPermissions(appPackage: String?): ArrayList<String> {
+        val builder = ArrayList<String>()
+        builder.add(" Open App")
+        builder.add(" App Info")
+        var counter = 1
+        val pi = packageManager.getPackageInfo(appPackage, PackageManager.GET_PERMISSIONS)
+        for (i in pi.requestedPermissions.indices) {
+            if (pi.requestedPermissionsFlags[i] and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0) {
+                val permissionInfo = packageManager.getPermissionInfo(pi.requestedPermissions[i], 0)
+                if (permissionInfo.group != null) {
+
+                    val permission_path = pi.requestedPermissions[i]
+
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        val name = Helper.getGroupName(permission_path)
+                        name?.let {
+                            if(!builder.contains(it)){
+                                builder.add(it)
+                            }
+                        }
+                    }else{
+                        val permissionGroupInfo = packageManager.getPermissionGroupInfo(permissionInfo.group, 0)
+                        val permission_group_name = permissionGroupInfo.loadLabel(packageManager).toString()
+                        if(!builder.contains(permission_group_name)){
+                            builder.add(permission_group_name)
+                        }
+
+                    }
+                }
+
+            }
+            counter++
+        }
+        return builder
     }
 
     // Custom method go to application details settings by package name
